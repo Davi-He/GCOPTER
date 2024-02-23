@@ -86,8 +86,8 @@ private:
     Visualizer visualizer;
     std::vector<Eigen::Vector3d> startGoal;
 
-    Trajectory<5> traj;
-    double trajStamp;
+    Trajectory<5> traj; 
+    double trajStamp; // 规划完成的时间戳，即立即起飞的时间起点
 
 public:
     GlobalPlanner(const Config &conf,
@@ -97,12 +97,13 @@ public:
           mapInitialized(false),
           visualizer(nh)
     {
+        // voxelMap 的尺寸(200,200,20)
         const Eigen::Vector3i xyz((config.mapBound[1] - config.mapBound[0]) / config.voxelWidth,
                                   (config.mapBound[3] - config.mapBound[2]) / config.voxelWidth,
                                   (config.mapBound[5] - config.mapBound[4]) / config.voxelWidth);
-
+        // voxelMap corner (-25,-25,0)
         const Eigen::Vector3d offset(config.mapBound[0], config.mapBound[2], config.mapBound[4]);
-
+        // voxelMap 的初始化
         voxelMap = voxel_map::VoxelMap(xyz, offset, config.voxelWidth);
 
         mapSub = nh.subscribe(config.mapTopic, 1, &GlobalPlanner::mapCallBack, this,
@@ -133,7 +134,7 @@ public:
                                                      fdata[cur + 1],
                                                      fdata[cur + 2]));
             }
-
+            // 膨胀 voxelMap 障碍物
             voxelMap.dilate(std::ceil(config.dilateRadius / voxelMap.getScale()));
 
             mapInitialized = true;
@@ -144,35 +145,48 @@ public:
     {
         if (startGoal.size() == 2)
         {
-            std::vector<Eigen::Vector3d> route;
+            std::vector<Eigen::Vector3d> route;  // route 为planPath出来的路径关键点 
             sfc_gen::planPath<voxel_map::VoxelMap>(startGoal[0],
                                                    startGoal[1],
                                                    voxelMap.getOrigin(),
                                                    voxelMap.getCorner(),
-                                                   &voxelMap, 0.01,
+                                                   &voxelMap, 1,
                                                    route);
-            std::vector<Eigen::MatrixX4d> hPolys;
-            std::vector<Eigen::Vector3d> pc;
+            // hPolys 为基于路径关键点的可行空间的多边形，convexCover()函数生成的凸多面体 4X4矩阵 多项式系数
+            std::vector<Eigen::MatrixX4d> hPolys; 
+            std::vector<Eigen::Vector3d> pc; // voxelMap.getSurf(pc) 为障碍物表面点
             voxelMap.getSurf(pc);
 
+             /*使用sfc_gen库中的convexCover()函数生成一组凸多面体，
+               这些多面体是通过将路径投影到voxelMap上，然后围绕结果点构建一组凸包来生成的
+             */
             sfc_gen::convexCover(route,
                                  pc,
                                  voxelMap.getOrigin(),
                                  voxelMap.getCorner(),
-                                 7.0,
-                                 3.0,
+                                 7.0,  // 相邻点之间的最大距离
+                                 3.0,  // 路径和voxelMap表面点之间的最大距离
                                  hPolys);
-            sfc_gen::shortCut(hPolys);
+            /* 对输入的一组凸多面体进行简化。函数内部使用一种启发式算法以减少多面体的数量并提高计算效率。
+               简化后的多面体存储在 hPolys 中，可以用于后续的优化和轨迹规划。
+            */
+            sfc_gen::shortCut(hPolys); 
 
             if (route.size() > 1)
             {
                 visualizer.visualizePolytope(hPolys);
 
-                Eigen::Matrix3d iniState;
-                Eigen::Matrix3d finState;
+                Eigen::Matrix3d iniState; //第一行为route的第一个元素，后面两行为零向量；
+                Eigen::Matrix3d finState; //第一行为route的最后一个元素，后面两行为零向量；
                 iniState << route.front(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero();
                 finState << route.back(), Eigen::Vector3d::Zero(), Eigen::Vector3d::Zero();
 
+                /*使用GCOPTER库中的GCOPTER_PolytopeSFC类对这些多面体进行优化。
+                优化过程包括设置各种约束参数，
+                如magnitudeBounds（最大速度 | 最大角速度 | 最大倾斜角 | 最小推力 | 最大推力）、
+                penaltyWeights（位置权重 | 速度权重 | 角速度权重 | 倾斜角权重 | 推力权重）
+                physicalParams（机身质量 | 重力加速度 | 水平阻力系数 | 垂直阻力系数 | 寄生阻力系数 | 速度平滑因子）
+                */
                 gcopter::GCOPTER_PolytopeSFC gcopter;
 
                 // magnitudeBounds = [v_max, omg_max, theta_max, thrust_min, thrust_max]^T
@@ -203,14 +217,14 @@ public:
 
                 traj.clear();
 
-                if (!gcopter.setup(config.weightT,
-                                   iniState, finState,
+                if (!gcopter.setup(config.weightT,  //时间权重
+                                   iniState, finState, //3X3矩阵 起点和终点的位置速度加速度
                                    hPolys, INFINITY,
-                                   config.smoothingEps,
-                                   quadratureRes,
-                                   magnitudeBounds,
-                                   penaltyWeights,
-                                   physicalParams))
+                                   config.smoothingEps, // 平滑因子
+                                   quadratureRes,    // 积分分段数
+                                   magnitudeBounds,  // 约束条件
+                                   penaltyWeights,  // 惩罚权重
+                                   physicalParams))  // 物理参数
                 {
                     return;
                 }
@@ -223,7 +237,7 @@ public:
                 if (traj.getPieceNum() > 0)
                 {
                     trajStamp = ros::Time::now().toSec();
-                    visualizer.visualize(traj, route);
+                    visualizer.visualize(traj, route); // 可视化优化后的轨迹和原始关键点路径
                 }
             }
         }
@@ -317,6 +331,7 @@ int main(int argc, char **argv)
         global_planner.process();
         ros::spinOnce();
         lr.sleep();
+        // ROS_INFO("global_planning_node: main\n");
     }
 
     return 0;

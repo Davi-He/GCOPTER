@@ -297,9 +297,9 @@ public:
         sphereMarkers.pose.orientation.w = 1.00;
         sphereMarkers.action = visualization_msgs::Marker::ADD;
         sphereMarkers.ns = "StartGoal";
-        sphereMarkers.color.r = 1.00;
-        sphereMarkers.color.g = 0.00;
-        sphereMarkers.color.b = 0.00;
+        sphereMarkers.color.r = static_cast<float>(rand()) / RAND_MAX;
+        sphereMarkers.color.g = static_cast<float>(rand()) / RAND_MAX;
+        sphereMarkers.color.b = static_cast<float>(rand()) / RAND_MAX;
         sphereMarkers.color.a = 1.00;
         sphereMarkers.scale.x = radius * 2.0;
         sphereMarkers.scale.y = radius * 2.0;

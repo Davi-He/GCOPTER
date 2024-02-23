@@ -43,13 +43,13 @@ namespace sfc_gen
 {
 
     template <typename Map>
-    inline double planPath(const Eigen::Vector3d &s,
-                           const Eigen::Vector3d &g,
-                           const Eigen::Vector3d &lb,
-                           const Eigen::Vector3d &hb,
+    inline double planPath(const Eigen::Vector3d &s,  // start
+                           const Eigen::Vector3d &g,  // goal
+                           const Eigen::Vector3d &lb, // lower bound (-25, -25, 0)
+                           const Eigen::Vector3d &hb, // upper bound (25, 25, 5)
                            const Map *mapPtr,
                            const double &timeout,
-                           std::vector<Eigen::Vector3d> &p)
+                           std::vector<Eigen::Vector3d> &p) // path points
     {
         auto space(std::make_shared<ompl::base::RealVectorStateSpace>(3));
 
@@ -60,7 +60,7 @@ namespace sfc_gen
         bounds.setHigh(1, hb(1) - lb(1));
         bounds.setLow(2, 0.0);
         bounds.setHigh(2, hb(2) - lb(2));
-        space->setBounds(bounds);
+        space->setBounds(bounds);  // low bounds (0,0,0), high bounds(50,50,5)
 
         auto si(std::make_shared<ompl::base::SpaceInformation>(space));
 

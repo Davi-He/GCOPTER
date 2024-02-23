@@ -699,7 +699,7 @@ Maps::generate(int type)
   {
     default:
     case 1:
-      perlin3D();
+      perlin3D(); // generating 3d perlin noise
       break;
     case 2:
       randomMapGenerate();
@@ -890,5 +890,14 @@ Maps::Maze3DGen()
   info.cloud->height = 1;
   ROS_INFO("the number of points before optimization is %d", info.cloud->width);
   info.cloud->points.resize(info.cloud->width * info.cloud->height);
+  // 希望点云上移的固定值
+  double height_offset = 2; // 你选择的上移的数值
+
+  // 遍历点云中的所有点，并将它们沿 z 轴上移
+  for (size_t i = 0; i < info.cloud->points.size(); ++i) {
+    info.cloud->points[i].z += height_offset; // 增加 z 值，上移点云
+  }
+
+  // 现在所有的点都在 xy 平面以上了
   pcl2ros();
 }

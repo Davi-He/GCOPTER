@@ -11,6 +11,14 @@
 
 #include "maps.hpp"
 
+/**
+ * @brief Optimizes the map by removing enclosed points within a specified radius.
+ * 
+ * This function takes in a mocka::Maps::BasicInfo object and removes enclosed points within a specified radius.
+ * The enclosed points are identified using a KdTreeFLANN algorithm.
+ * 
+ * @param in The input mocka::Maps::BasicInfo object containing the point cloud to be optimized.
+ */
 void
 optimizeMap(mocka::Maps::BasicInfo& in)
 {

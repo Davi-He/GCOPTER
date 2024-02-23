@@ -45,12 +45,12 @@ namespace voxel_map
         VoxelMap(const Eigen::Vector3i &size,
                  const Eigen::Vector3d &origin,
                  const double &voxScale)
-            : mapSize(size),
-              o(origin),
-              scale(voxScale),
-              voxNum(mapSize.prod()),
-              step(1, mapSize(0), mapSize(1) * mapSize(0)),
-              oc(o + Eigen::Vector3d::Constant(0.5 * scale)),
+            : mapSize(size), // 200 * 200 * 20
+              o(origin), // (-25,-25,0)
+              scale(voxScale), // 0.25
+              voxNum(mapSize.prod()), // 200*200*20 =800000
+              step(1, mapSize(0), mapSize(1) * mapSize(0)),  // 1,200,40000， 标量step
+              oc(o + Eigen::Vector3d::Constant(0.5 * scale)), // -24.875, -24.875, -0.125
               bounds((mapSize.array() - 1) * step.array()),
               stepScale(step.cast<double>().cwiseInverse() * scale),
               voxels(voxNum, Unoccupied) {}
